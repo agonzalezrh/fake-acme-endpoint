@@ -66,6 +66,7 @@ class FakeACMEProvider:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 email TEXT NOT NULL,
+                account_key TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 active BOOLEAN DEFAULT 1
             )
