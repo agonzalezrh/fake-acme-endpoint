@@ -39,7 +39,8 @@ app = Flask(__name__)
 
 # Configuration
 ACME_DIRECTORY_URL = os.getenv('ACME_DIRECTORY_URL', 'https://acme-v02.api.letsencrypt.org/directory')
-ZEROSSL_API_KEY = os.getenv('ZEROSSL_API_KEY')
+ZEROSSL_EAB_KID = os.getenv('ZEROSSL_EAB_KID')
+ZEROSSL_EAB_HMAC_KEY = os.getenv('ZEROSSL_EAB_HMAC_KEY')
 LETSENCRYPT_FALLBACK = os.getenv('LETSENCRYPT_FALLBACK', 'true').lower() == 'true'
 DATABASE_PATH = os.getenv('DATABASE_PATH', '/data/fake_acme.db')
 CHALLENGE_PORT = int(os.getenv('CHALLENGE_PORT', '8080'))
@@ -105,20 +106,23 @@ class FakeACMEProvider:
         conn.close()
     
     def _init_upstream_clients(self):
-        """Initialize upstream ACME clients"""
+        """Initialize upstream ACME clients with EAB"""
         try:
-            # ZeroSSL client
-            if ZEROSSL_API_KEY:
+            # ZeroSSL client with EAB
+            if ZEROSSL_EAB_KID and ZEROSSL_EAB_HMAC_KEY:
                 self.upstream_clients['zerossl'] = {
-                    'api_key': ZEROSSL_API_KEY,
-                    'base_url': 'https://api.zerossl.com'
+                    'eab_kid': ZEROSSL_EAB_KID,
+                    'eab_hmac_key': ZEROSSL_EAB_HMAC_KEY,
+                    'directory_url': 'https://acme.zerossl.com/v2/DV90'
                 }
+                logger.info("ZeroSSL upstream configured with EAB")
             
-            # Let's Encrypt client
+            # Let's Encrypt client (fallback)
             if LETSENCRYPT_FALLBACK:
                 self.upstream_clients['letsencrypt'] = {
                     'directory_url': 'https://acme-v02.api.letsencrypt.org/directory'
                 }
+                logger.info("Let's Encrypt fallback enabled")
         except Exception as e:
             logger.error(f"Failed to initialize upstream clients: {e}")
     

@@ -64,7 +64,7 @@ The deployment script will build the container image on OpenShift and deploy aut
 
 ```bash
 # Deploy using the automated script (builds on OpenShift)
-./deploy.sh --host fake-acme.your-domain.com --api-key your-zerossl-key
+./deploy.sh --host fake-acme.your-domain.com --eab-kid your-eab-kid --eab-hmac-key your-eab-hmac-key
 
 # Or deploy using the OpenShift manifests directly
 oc apply -f openshift-build.yaml
@@ -76,11 +76,12 @@ The application is built directly on OpenShift using BuildConfig, so you don't n
 
 ### 2. Configure Secrets
 
-Update the ZeroSSL API key in the secret:
+Update the ZeroSSL EAB credentials in the secret:
 
 ```bash
 oc create secret generic upstream-acme-secret \
-  --from-literal=zerossl-api-key="your-zerossl-api-key" \
+  --from-literal=zerossl-eab-kid="your-eab-key-id" \
+  --from-literal=zerossl-eab-hmac-key="your-eab-hmac-key" \
   --from-literal=letsencrypt-directory="https://acme-v02.api.letsencrypt.org/directory" \
   -n fake-acme
 ```
@@ -107,7 +108,8 @@ oc apply -f openshift-deployment.yaml
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_PATH` | SQLite database path | `/data/fake_acme.db` |
-| `ZEROSSL_API_KEY` | ZeroSSL API key | - |
+| `ZEROSSL_EAB_KID` | ZeroSSL EAB Key ID | - |
+| `ZEROSSL_EAB_HMAC_KEY` | ZeroSSL EAB HMAC Key | - |
 | `ACME_DIRECTORY_URL` | ACME directory URL | Let's Encrypt |
 | `LETSENCRYPT_FALLBACK` | Enable Let's Encrypt fallback | `true` |
 | `CHALLENGE_PORT` | Challenge handler port | `8080` |
@@ -118,11 +120,12 @@ oc apply -f openshift-deployment.yaml
 The application supports two upstream ACME providers:
 
 1. **ZeroSSL** (Primary)
-   - Requires API key
-   - Configured via `ZEROSSL_API_KEY` environment variable
+   - Requires EAB (External Account Binding) credentials
+   - Configured via `ZEROSSL_EAB_KID` and `ZEROSSL_EAB_HMAC_KEY` environment variables
+   - Get EAB credentials from ZeroSSL dashboard
 
 2. **Let's Encrypt** (Fallback)
-   - No API key required
+   - No EAB required
    - Automatically used when ZeroSSL fails
 
 ## API Endpoints

@@ -12,7 +12,8 @@ metadata:
   namespace: fake-acme
 type: Opaque
 stringData:
-  zerossl-api-key: "your-zerossl-api-key-here"
+  zerossl-eab-kid: "your-zerossl-eab-key-id-here"
+  zerossl-eab-hmac-key: "your-zerossl-eab-hmac-key-here"
   letsencrypt-directory: "https://acme-v02.api.letsencrypt.org/directory"
 ---
 apiVersion: v1
@@ -66,11 +67,16 @@ spec:
         env:
         - name: DATABASE_PATH
           value: "/data/fake_acme.db"
-        - name: ZEROSSL_API_KEY
+        - name: ZEROSSL_EAB_KID
           valueFrom:
             secretKeyRef:
               name: upstream-acme-secret
-              key: zerossl-api-key
+              key: zerossl-eab-kid
+        - name: ZEROSSL_EAB_HMAC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: upstream-acme-secret
+              key: zerossl-eab-hmac-key
         - name: ACME_DIRECTORY_URL
           valueFrom:
             configMapKeyRef:

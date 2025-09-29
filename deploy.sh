@@ -11,7 +11,8 @@ APP_NAME="fake-acme"
 IMAGE_NAME="fake-acme"
 IMAGE_TAG="latest"
 ROUTE_HOST="fake-acme.example.com"
-ZEROSSL_API_KEY=""
+ZEROSSL_EAB_KID=""
+ZEROSSL_EAB_HMAC_KEY=""
 LETSENCRYPT_FALLBACK="true"
 
 # Colors for output
@@ -149,18 +150,20 @@ create_namespace() {
 create_secrets() {
     print_status "INFO" "Creating secrets..."
     
-    # Create upstream ACME secret
-    if [ -n "$ZEROSSL_API_KEY" ]; then
+    # Create upstream ACME secret with EAB
+    if [ -n "$ZEROSSL_EAB_KID" ] && [ -n "$ZEROSSL_EAB_HMAC_KEY" ]; then
         oc create secret generic upstream-acme-secret \
-            --from-literal=zerossl-api-key="$ZEROSSL_API_KEY" \
+            --from-literal=zerossl-eab-kid="$ZEROSSL_EAB_KID" \
+            --from-literal=zerossl-eab-hmac-key="$ZEROSSL_EAB_HMAC_KEY" \
             --from-literal=letsencrypt-directory="https://acme-v02.api.letsencrypt.org/directory" \
             -n $NAMESPACE \
             --dry-run=client -o yaml | oc apply -f -
-        print_status "SUCCESS" "Upstream ACME secret created"
+        print_status "SUCCESS" "Upstream ACME secret created with EAB credentials"
     else
-        print_status "WARNING" "ZeroSSL API key not provided. Creating secret without API key."
+        print_status "WARNING" "ZeroSSL EAB credentials not provided. Creating secret without EAB."
         oc create secret generic upstream-acme-secret \
-            --from-literal=zerossl-api-key="" \
+            --from-literal=zerossl-eab-kid="" \
+            --from-literal=zerossl-eab-hmac-key="" \
             --from-literal=letsencrypt-directory="https://acme-v02.api.letsencrypt.org/directory" \
             -n $NAMESPACE \
             --dry-run=client -o yaml | oc apply -f -
@@ -397,16 +400,17 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -n, --namespace NAME     OpenShift namespace (default: fake-acme)"
-    echo "  -h, --host HOST          Route hostname (default: fake-acme.example.com)"
-    echo "  -k, --api-key KEY        ZeroSSL API key"
-    echo "  -i, --image IMAGE        Docker image name (default: fake-acme)"
-    echo "  -t, --tag TAG           Docker image tag (default: latest)"
-    echo "  --no-fallback           Disable Let's Encrypt fallback"
-    echo "  --help                   Show this help message"
+    echo "  -n, --namespace NAME         OpenShift namespace (default: fake-acme)"
+    echo "  -h, --host HOST              Route hostname (default: fake-acme.example.com)"
+    echo "  -k, --eab-kid KEY_ID         ZeroSSL EAB Key ID"
+    echo "  --eab-hmac-key HMAC_KEY      ZeroSSL EAB HMAC Key"
+    echo "  -i, --image IMAGE            Docker image name (default: fake-acme)"
+    echo "  -t, --tag TAG                Docker image tag (default: latest)"
+    echo "  --no-fallback                Disable Let's Encrypt fallback"
+    echo "  --help                       Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 --host fake-acme.mycompany.com --api-key your-zerossl-key"
+    echo "  $0 --host fake-acme.mycompany.com --eab-kid your-kid --eab-hmac-key your-hmac"
     echo "  $0 --namespace my-namespace --host my-fake-acme.com"
 }
 
@@ -421,8 +425,12 @@ while [[ $# -gt 0 ]]; do
             ROUTE_HOST="$2"
             shift 2
             ;;
-        -k|--api-key)
-            ZEROSSL_API_KEY="$2"
+        -k|--eab-kid)
+            ZEROSSL_EAB_KID="$2"
+            shift 2
+            ;;
+        --eab-hmac-key)
+            ZEROSSL_EAB_HMAC_KEY="$2"
             shift 2
             ;;
         -i|--image)
@@ -455,7 +463,8 @@ main() {
     print_status "INFO" "Namespace: $NAMESPACE"
     print_status "INFO" "Route Host: $ROUTE_HOST"
     print_status "INFO" "Image: $IMAGE_NAME:$IMAGE_TAG"
-    print_status "INFO" "ZeroSSL API Key: ${ZEROSSL_API_KEY:+[SET]}${ZEROSSL_API_KEY:-[NOT SET]}"
+    print_status "INFO" "ZeroSSL EAB KID: ${ZEROSSL_EAB_KID:+[SET]}${ZEROSSL_EAB_KID:-[NOT SET]}"
+    print_status "INFO" "ZeroSSL EAB HMAC Key: ${ZEROSSL_EAB_HMAC_KEY:+[SET]}${ZEROSSL_EAB_HMAC_KEY:-[NOT SET]}"
     print_status "INFO" "Let's Encrypt Fallback: $LETSENCRYPT_FALLBACK"
     echo ""
     
