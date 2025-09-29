@@ -253,7 +253,10 @@ acme_provider = FakeACMEProvider()
 @app.route('/acme/directory', methods=['GET'])
 def acme_directory():
     """ACME directory endpoint (RFC 8555 Section 7.1.1)"""
+    # Always use HTTPS in directory URLs
     base_url = request.url_root.rstrip('/')
+    if base_url.startswith('http://'):
+        base_url = base_url.replace('http://', 'https://')
     
     response = jsonify({
         'newNonce': f'{base_url}/acme/new-nonce',
