@@ -220,6 +220,8 @@ metadata:
   namespace: $NAMESPACE
   labels:
     app: $APP_NAME
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"$APP_NAME:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"$APP_NAME\")].image"}]'
 spec:
   replicas: 1
   selector:

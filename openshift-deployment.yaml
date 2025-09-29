@@ -48,6 +48,8 @@ metadata:
   namespace: fake-acme
   labels:
     app: fake-acme
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"fake-acme:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"fake-acme\")].image"}]'
 spec:
   replicas: 1
   selector:
