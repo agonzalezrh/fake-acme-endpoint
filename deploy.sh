@@ -73,7 +73,7 @@ create_build() {
     
     # Create ImageStream
     cat <<EOF | oc apply -f -
-apiVersion: v1
+apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: $APP_NAME
