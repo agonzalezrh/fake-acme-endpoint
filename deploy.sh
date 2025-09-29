@@ -198,7 +198,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  volumeMode: Block
+  volumeMode: Filesystem
   # storageClassName: # Let OpenShift choose the default storage class
 EOF
     
@@ -261,9 +261,9 @@ spec:
             configMapKeyRef:
               name: fake-acme-config
               key: DNS_CHALLENGE_DOMAIN
-        volumeDevices:
+        volumeMounts:
         - name: data-storage
-          devicePath: /dev/xvda
+          mountPath: /data
         livenessProbe:
           httpGet:
             path: /health
