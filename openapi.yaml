@@ -1,0 +1,399 @@
+openapi: 3.0.3
+info:
+  title: Fake ACME Endpoint API
+  description: |
+    A fake ACME endpoint that provides certificate management with user management capabilities.
+    This endpoint supports both HTTP-01 and DNS-01 challenges and can fallback to upstream
+    ACME providers (ZeroSSL with Let's Encrypt fallback).
+  version: 1.0.0
+  contact:
+    name: Fake ACME API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+- url: https://fake-acme.example.com
+  description: Production server
+- url: http://localhost:8080
+  description: Development server
+
+paths:
+  /acme/directory:
+    get:
+      summary: ACME Directory
+      description: Returns the ACME directory with available endpoints
+      tags:
+      - ACME
+      responses:
+        '200':
+          description: ACME directory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  newNonce:
+                    type: string
+                    format: uri
+                  newAccount:
+                    type: string
+                    format: uri
+                  newOrder:
+                    type: string
+                    format: uri
+                  revokeCert:
+                    type: string
+                    format: uri
+                  keyChange:
+                    type: string
+                    format: uri
+                  meta:
+                    type: object
+                    properties:
+                      termsOfService:
+                        type: string
+                        format: uri
+                      website:
+                        type: string
+                        format: uri
+                      caaIdentities:
+                        type: array
+                        items:
+                          type: string
+
+  /acme/new-nonce:
+    head:
+      summary: Get Nonce (HEAD)
+      description: Get a new nonce using HEAD request
+      tags:
+      - ACME
+      responses:
+        '200':
+          description: Nonce in Replay-Nonce header
+          headers:
+            Replay-Nonce:
+              type: string
+              description: The nonce value
+    get:
+      summary: Get Nonce (GET)
+      description: Get a new nonce using GET request
+      tags:
+      - ACME
+      responses:
+        '200':
+          description: Nonce in Replay-Nonce header
+          headers:
+            Replay-Nonce:
+              type: string
+              description: The nonce value
+
+  /acme/new-account:
+    post:
+      summary: Create New Account
+      description: Create a new ACME account
+      tags:
+      - ACME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - contact
+              properties:
+                contact:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                  example: [ "mailto:user@example.com" ]
+                termsOfServiceAgreed:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Account created successfully
+          headers:
+            Location:
+              type: string
+              format: uri
+              description: URL of the created account
+            Replay-Nonce:
+              type: string
+              description: The nonce value
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ valid ]
+                  contact:
+                    type: array
+                    items:
+                      type: string
+                  orders:
+                    type: string
+                    format: uri
+
+  /acme/new-order:
+    post:
+      summary: Create New Order
+      description: Create a new certificate order
+      tags:
+      - ACME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - identifiers
+              properties:
+                identifiers:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - type
+                    - value
+                    properties:
+                      type:
+                        type: string
+                        enum: [ dns ]
+                      value:
+                        type: string
+                        example: "example.com"
+      responses:
+        '201':
+          description: Order created successfully
+          headers:
+            Location:
+              type: string
+              format: uri
+              description: URL of the created order
+            Replay-Nonce:
+              type: string
+              description: The nonce value
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ pending, ready, processing, valid, invalid ]
+                  expires:
+                    type: string
+                    format: date-time
+                  identifiers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        value:
+                          type: string
+                  authorizations:
+                    type: array
+                    items:
+                      type: string
+                      format: uri
+                  finalize:
+                    type: string
+                    format: uri
+
+  /.well-known/acme-challenge/{token}:
+    get:
+      summary: HTTP-01 Challenge
+      description: Handle HTTP-01 challenge requests
+      tags:
+      - Challenges
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The challenge token
+      responses:
+        '200':
+          description: Challenge response
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          description: Challenge not found
+
+  /api/users:
+    get:
+      summary: List Users
+      description: Get a list of all users
+      tags:
+      - User Management
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '500':
+          description: Internal server error
+
+    post:
+      summary: Create User
+      description: Create a new user
+      tags:
+      - User Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - username
+              - email
+              properties:
+                username:
+                  type: string
+                  example: "johndoe"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+
+  /api/users/{username}:
+    get:
+      summary: Get User
+      description: Get user information by username
+      tags:
+      - User Management
+      parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The username
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+
+    delete:
+      summary: Delete User
+      description: Delete a user and all associated certificates
+      tags:
+      - User Management
+      parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+        description: The username
+      responses:
+        '204':
+          description: User deleted successfully
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+
+  /health:
+    get:
+      summary: Health Check
+      description: Check the health status of the service
+      tags:
+      - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ healthy ]
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: User ID
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: User email
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        active:
+          type: boolean
+          description: Whether the user is active
+      required:
+      - id
+      - username
+      - email
+      - created_at
+      - active
+
+  securitySchemes:
+    ACME:
+      type: http
+      scheme: bearer
+      description: ACME protocol authentication
+
+tags:
+- name: ACME
+  description: ACME protocol endpoints
+- name: Challenges
+  description: Challenge handling endpoints
+- name: User Management
+  description: User management endpoints
+- name: Health
+  description: Health check endpoints
