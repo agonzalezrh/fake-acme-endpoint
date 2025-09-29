@@ -54,22 +54,25 @@ A comprehensive fake ACME endpoint application designed for OpenShift 4 that pro
 
 - OpenShift 4 cluster
 - `oc` CLI tool
-- Podman (for building images)
-- certbot (for testing)
+- certbot (for testing, optional)
 
 ## Quick Start
 
 ### 1. Deploy to OpenShift
 
-The deployment script will handle building and deploying automatically:
+The deployment script will build the container image on OpenShift and deploy automatically:
 
 ```bash
-# Deploy using the automated script
+# Deploy using the automated script (builds on OpenShift)
 ./deploy.sh --host fake-acme.your-domain.com --api-key your-zerossl-key
 
 # Or deploy using the OpenShift manifests directly
+oc apply -f openshift-build.yaml
+oc start-build fake-acme --follow
 oc apply -f openshift-deployment.yaml
 ```
+
+The application is built directly on OpenShift using BuildConfig, so you don't need Podman or Docker locally.
 
 ### 2. Configure Secrets
 

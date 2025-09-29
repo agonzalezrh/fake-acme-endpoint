@@ -67,16 +67,69 @@ check_prerequisites() {
     print_status "SUCCESS" "Prerequisites check completed"
 }
 
-# Function to build container image
-build_image() {
-    print_status "INFO" "Building container image..."
+# Function to create ImageStream and BuildConfig
+create_build() {
+    print_status "INFO" "Creating ImageStream and BuildConfig..."
     
-    if command -v podman &> /dev/null; then
-        podman build -t $IMAGE_NAME:$IMAGE_TAG .
-        print_status "SUCCESS" "Container image built successfully"
+    # Create ImageStream
+    cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: ImageStream
+metadata:
+  name: $APP_NAME
+  namespace: $NAMESPACE
+  labels:
+    app: $APP_NAME
+EOF
+    
+    # Create BuildConfig
+    cat <<EOF | oc apply -f -
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: $APP_NAME
+  namespace: $NAMESPACE
+  labels:
+    app: $APP_NAME
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: $APP_NAME:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/agonzalezrh/fake-acme-endpoint.git
+      ref: main
+    contextDir: .
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  triggers:
+    - type: ConfigChange
+    - type: GitHub
+      github:
+        secret: fake-acme-webhook-secret
+    - type: Generic
+      generic:
+        secret: fake-acme-webhook-secret
+EOF
+    
+    print_status "SUCCESS" "ImageStream and BuildConfig created"
+}
+
+# Function to start build
+start_build() {
+    print_status "INFO" "Starting image build..."
+    
+    oc start-build $APP_NAME -n $NAMESPACE --follow
+    
+    if [ $? -eq 0 ]; then
+        print_status "SUCCESS" "Image build completed successfully"
     else
-        print_status "WARNING" "Podman not available. Please build the image manually:"
-        print_status "INFO" "podman build -t $IMAGE_NAME:$IMAGE_TAG ."
+        print_status "ERROR" "Image build failed"
+        exit 1
     fi
 }
 
@@ -176,7 +229,7 @@ spec:
     spec:
       containers:
       - name: $APP_NAME
-        image: $IMAGE_NAME:$IMAGE_TAG
+        image: image-registry.openshift-image-registry.svc:5000/$NAMESPACE/$APP_NAME:latest
         ports:
         - containerPort: 8080
           name: http
@@ -407,8 +460,9 @@ main() {
     echo ""
     
     check_prerequisites
-    build_image
     create_namespace
+    create_build
+    start_build
     create_secrets
     create_configmap
     create_pvc

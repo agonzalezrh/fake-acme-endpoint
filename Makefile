@@ -21,7 +21,7 @@ help:
 	@echo "======================================"
 	@echo ""
 	@echo "Development:"
-	@echo "  make build          - Build container image with Podman"
+	@echo "  make build          - Build container image on OpenShift"
 	@echo "  make run            - Run application locally"
 	@echo "  make test           - Run test scripts"
 	@echo "  make lint           - Run linting checks"
@@ -49,9 +49,10 @@ help:
 
 # Development targets
 build:
-	@echo "$(GREEN)Building container image with Podman...$(NC)"
-	podman build -t $(IMAGE_NAME):$(IMAGE_TAG) .
-	@echo "$(GREEN)✓ Image built: $(IMAGE_NAME):$(IMAGE_TAG)$(NC)"
+	@echo "$(GREEN)Building container image on OpenShift...$(NC)"
+	oc apply -f openshift-build.yaml -n $(NAMESPACE)
+	oc start-build $(IMAGE_NAME) -n $(NAMESPACE) --follow
+	@echo "$(GREEN)✓ Image built on OpenShift$(NC)"
 
 run:
 	@echo "$(GREEN)Running application locally...$(NC)"
@@ -107,7 +108,8 @@ status:
 # Utility targets
 clean:
 	@echo "$(GREEN)Cleaning up...$(NC)"
-	docker rmi $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
+	oc delete buildconfig $(IMAGE_NAME) -n $(NAMESPACE) 2>/dev/null || true
+	oc delete imagestream $(IMAGE_NAME) -n $(NAMESPACE) 2>/dev/null || true
 	@echo "$(GREEN)✓ Cleanup completed$(NC)"
 
 logs:
