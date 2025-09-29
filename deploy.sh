@@ -239,11 +239,16 @@ spec:
         env:
         - name: DATABASE_PATH
           value: "/data/fake_acme.db"
-        - name: ZEROSSL_API_KEY
+        - name: ZEROSSL_EAB_KID
           valueFrom:
             secretKeyRef:
               name: upstream-acme-secret
-              key: zerossl-api-key
+              key: zerossl-eab-kid
+        - name: ZEROSSL_EAB_HMAC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: upstream-acme-secret
+              key: zerossl-eab-hmac-key
         - name: ACME_DIRECTORY_URL
           valueFrom:
             configMapKeyRef:
