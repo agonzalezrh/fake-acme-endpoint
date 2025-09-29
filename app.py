@@ -246,10 +246,22 @@ def new_nonce():
     response.headers['Replay-Nonce'] = nonce
     return response
 
-@app.route('/acme/new-account', methods=['POST'])
+@app.route('/acme/new-account', methods=['GET', 'POST'])
 def new_account():
-    """Create new ACME account"""
+    """Create new ACME account or retrieve existing account"""
     try:
+        if request.method == 'GET':
+            # Return account information for existing account
+            # In a real implementation, this would look up the account
+            # For now, return a basic response
+            response = jsonify({
+                'status': 'valid',
+                'contact': [],
+                'orders': f"{request.url_root}acme/account/orders"
+            })
+            response.headers['Replay-Nonce'] = base64.urlsafe_b64encode(os.urandom(32)).decode('ascii').rstrip('=')
+            return response
+        
         payload = request.get_json()
         if not payload:
             raise BadRequest('Invalid JSON payload')
