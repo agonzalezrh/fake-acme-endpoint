@@ -133,7 +133,7 @@ create_configmap() {
 create_pvc() {
     print_status "INFO" "Creating PersistentVolumeClaim..."
     
-    cat <<EOF | oc apply -f -
+        cat <<EOF | oc apply -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -145,7 +145,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  storageClassName: gp2
+  # storageClassName: # Let OpenShift choose the default storage class
 EOF
     
     print_status "SUCCESS" "PersistentVolumeClaim created"
