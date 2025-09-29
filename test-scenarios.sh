@@ -5,11 +5,42 @@
 
 set -e
 
-# Configuration
+# Default configuration
 FAKE_ACME_URL="${FAKE_ACME_URL:-https://fake-acme.example.com}"
 TEST_DOMAINS=("test1.example.com" "test2.example.com" "*.test.example.com")
 EMAIL="${EMAIL:-test@example.com}"
 ZEROSSL_API_KEY="${ZEROSSL_API_KEY:-}"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --url)
+            FAKE_ACME_URL="$2"
+            shift 2
+            ;;
+        --email)
+            EMAIL="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --url URL      Fake ACME endpoint URL (default: https://fake-acme.example.com)"
+            echo "  --email EMAIL  Email address for testing (default: test@example.com)"
+            echo "  --help         Show this help message"
+            echo ""
+            echo "Example:"
+            echo "  $0 --url https://fake-acme.your-domain.com --email user@example.com"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 echo "Fake ACME Endpoint - Comprehensive Test Scenarios"
 echo "================================================="

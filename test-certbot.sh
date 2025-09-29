@@ -5,10 +5,46 @@
 
 set -e
 
-# Configuration
+# Default configuration
 FAKE_ACME_URL="${FAKE_ACME_URL:-https://fake-acme.example.com}"
 TEST_DOMAIN="${TEST_DOMAIN:-test.example.com}"
 EMAIL="${EMAIL:-test@example.com}"
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --url)
+            FAKE_ACME_URL="$2"
+            shift 2
+            ;;
+        --domain)
+            TEST_DOMAIN="$2"
+            shift 2
+            ;;
+        --email)
+            EMAIL="$2"
+            shift 2
+            ;;
+        --help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --url URL      Fake ACME endpoint URL (default: https://fake-acme.example.com)"
+            echo "  --domain DOMAIN Test domain (default: test.example.com)"
+            echo "  --email EMAIL  Email address (default: test@example.com)"
+            echo "  --help         Show this help message"
+            echo ""
+            echo "Example:"
+            echo "  $0 --url https://fake-acme.your-domain.com --domain test.com --email user@example.com"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 echo "Testing Fake ACME endpoint with certbot"
 echo "======================================"
