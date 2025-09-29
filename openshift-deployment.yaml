@@ -48,7 +48,7 @@ metadata:
   labels:
     app: fake-acme
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: fake-acme
