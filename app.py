@@ -279,10 +279,14 @@ def new_nonce():
 def new_account():
     """Create or lookup ACME account (RFC 8555 Section 7.3)"""
     try:
-        if request.method in ['GET', 'HEAD']:
-            # Return nonce for GET/HEAD requests (happens after redirect)
-            response = Response('', status=204)
+        if request.method == 'HEAD':
+            response = Response('', status=200)
             return add_nonce_header(response)
+        
+        if request.method == 'GET':
+            # GET on new-account is not standard ACME, but handle it gracefully
+            response = jsonify({'error': 'method not allowed', 'detail': 'Use POST to create or lookup account'})
+            return add_nonce_header(response), 405
             
         payload = request.get_json()
         if not payload:
@@ -379,10 +383,14 @@ def account_details(account_id: int):
 def new_order():
     """Create new certificate order (RFC 8555 Section 7.4)"""
     try:
-        if request.method in ['GET', 'HEAD']:
-            # Return nonce for GET/HEAD requests (happens after redirect)
-            response = Response('', status=204)
+        if request.method == 'HEAD':
+            response = Response('', status=200)
             return add_nonce_header(response)
+        
+        if request.method == 'GET':
+            # GET on new-order is not standard ACME, but handle it gracefully
+            response = jsonify({'error': 'method not allowed', 'detail': 'Use POST to create a new order'})
+            return add_nonce_header(response), 405
             
         payload = request.get_json()
         if not payload:
