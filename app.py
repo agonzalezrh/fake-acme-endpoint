@@ -275,10 +275,15 @@ def new_nonce():
     response = Response('', status=200 if request.method == 'GET' else 204)
     return add_nonce_header(response)
 
-@app.route('/acme/new-account', methods=['POST'])
+@app.route('/acme/new-account', methods=['GET', 'POST', 'HEAD'])
 def new_account():
     """Create or lookup ACME account (RFC 8555 Section 7.3)"""
     try:
+        if request.method in ['GET', 'HEAD']:
+            # Return nonce for GET/HEAD requests (happens after redirect)
+            response = Response('', status=204)
+            return add_nonce_header(response)
+            
         payload = request.get_json()
         if not payload:
             raise BadRequest('Invalid JSON payload')
@@ -370,10 +375,15 @@ def account_details(account_id: int):
         logger.error(f"Error getting account: {e}")
         raise InternalServerError(f"Account retrieval failed: {str(e)}")
 
-@app.route('/acme/new-order', methods=['POST'])
+@app.route('/acme/new-order', methods=['GET', 'POST', 'HEAD'])
 def new_order():
     """Create new certificate order (RFC 8555 Section 7.4)"""
     try:
+        if request.method in ['GET', 'HEAD']:
+            # Return nonce for GET/HEAD requests (happens after redirect)
+            response = Response('', status=204)
+            return add_nonce_header(response)
+            
         payload = request.get_json()
         if not payload:
             raise BadRequest('Invalid JSON payload')
