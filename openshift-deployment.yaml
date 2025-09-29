@@ -33,11 +33,11 @@ metadata:
   namespace: fake-acme
 spec:
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
-  volumeMode: Block
+  volumeMode: Filesystem
   # storageClassName: # Let OpenShift choose the default storage class
 ---
 apiVersion: apps/v1

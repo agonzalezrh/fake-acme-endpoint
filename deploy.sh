@@ -145,7 +145,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  volumeMode: Block
+  volumeMode: Filesystem
   # storageClassName: # Let OpenShift choose the default storage class
 EOF
     
