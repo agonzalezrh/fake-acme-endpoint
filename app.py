@@ -727,9 +727,9 @@ def respond_to_challenge(challenge_id: int):
 def finalize_order(order_id: int):
     """Finalize order and issue certificate (RFC 8555 Section 7.4)"""
     try:
-        payload = request.get_json()
+        payload = parse_jws_payload()
         if not payload:
-            raise BadRequest('Invalid JSON payload')
+            raise BadRequest('Invalid JWS payload')
         
         csr = payload.get('csr')
         if not csr:
