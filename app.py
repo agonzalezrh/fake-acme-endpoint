@@ -647,21 +647,9 @@ def respond_to_challenge(challenge_id: int):
             raise NotFound('Challenge not found')
         
         authz_id = challenge[1]  # authz_id
-        
-        # Auto-validate the challenge (this is a fake endpoint)
-        cursor.execute(
-            'UPDATE challenges SET status = ?, validated = ? WHERE id = ?',
-            ('valid', datetime.now().isoformat(), challenge_id)
-        )
-        
-        # Update authorization status
-        cursor.execute(
-            'UPDATE authorizations SET status = ? WHERE id = ?',
-            ('valid', authz_id)
-        )
-        
-        conn.commit()
-        conn.close()
+        chal_type = challenge[2]  # type
+        token = challenge[3]  # token
+        current_status = challenge[4]  # status
         
         # Build URLs
         base_url = request.url_root.rstrip('/')
@@ -671,13 +659,35 @@ def respond_to_challenge(challenge_id: int):
         challenge_url = f"{base_url}/acme/challenge/{challenge_id}"
         authz_url = f"{base_url}/acme/authz/{authz_id}"
         
-        response = jsonify({
-            'type': challenge[2],  # type
-            'status': 'valid',
+        # If this is a POST with empty payload, client is ready for validation
+        # Start async validation (in a real implementation)
+        # For fake endpoint, we mark as processing then valid
+        if request.method == 'POST':
+            payload = parse_jws_payload()
+            if payload is not None and current_status == 'pending':
+                # Mark as processing, then immediately valid (fake endpoint behavior)
+                cursor.execute(
+                    'UPDATE challenges SET status = ? WHERE id = ?',
+                    ('processing', challenge_id)
+                )
+                conn.commit()
+                current_status = 'processing'
+        
+        conn.close()
+        
+        # Build response
+        response_data = {
+            'type': chal_type,
+            'status': current_status,
             'url': challenge_url,
-            'token': challenge[3],  # token
-            'validated': datetime.now().isoformat() + 'Z'
-        })
+            'token': token
+        }
+        
+        # Add validated timestamp if challenge is valid
+        if current_status in ['valid', 'invalid']:
+            response_data['validated'] = datetime.now().isoformat() + 'Z'
+        
+        response = jsonify(response_data)
         
         # Add Link header pointing to authorization
         response.headers['Link'] = f'<{authz_url}>;rel="up"'
@@ -789,18 +799,31 @@ def http_challenge(token: str):
         cursor = conn.cursor()
         
         cursor.execute(
-            'SELECT token FROM challenges WHERE token = ? AND type = ?',
+            'SELECT id, token FROM challenges WHERE token = ? AND type = ?',
             (token, 'http-01')
         )
         result = cursor.fetchone()
         
-        conn.close()
-        
         if result:
+            challenge_id = result[0]
+            # Mark challenge as valid when accessed
+            cursor.execute(
+                'UPDATE challenges SET status = ?, validated = ? WHERE id = ?',
+                ('valid', datetime.now().isoformat(), challenge_id)
+            )
+            # Update authorization status
+            cursor.execute(
+                'UPDATE authorizations SET status = ? WHERE id IN (SELECT authz_id FROM challenges WHERE id = ?)',
+                ('valid', challenge_id)
+            )
+            conn.commit()
+            conn.close()
+            
             # Return the token as key authorization
             # In a real implementation, this would be token + thumbprint
             return token, 200, {'Content-Type': 'text/plain'}
         else:
+            conn.close()
             raise NotFound('Challenge not found')
             
     except NotFound:
