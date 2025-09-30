@@ -175,7 +175,7 @@ class FakeACMEProvider:
             
             if 'authz_id' not in columns and 'cert_id' in columns:
                 # Drop old table and recreate
-                logger.info("Migrating old database schema...")
+                logger.info("Migrating old challenges table schema...")
                 cursor.execute('DROP TABLE IF EXISTS challenges')
                 cursor.execute('''
                     CREATE TABLE challenges (
@@ -189,7 +189,26 @@ class FakeACMEProvider:
                         FOREIGN KEY (authz_id) REFERENCES authorizations (id)
                     )
                 ''')
-                logger.info("Database schema migrated successfully")
+                logger.info("Challenges table migrated successfully")
+            
+            # Check if old certificates table exists with wrong schema
+            cursor.execute("PRAGMA table_info(certificates)")
+            cert_columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'order_id' not in cert_columns and ('user_id' in cert_columns or 'cert_id' in cert_columns):
+                # Drop old table and recreate
+                logger.info("Migrating old certificates table schema...")
+                cursor.execute('DROP TABLE IF EXISTS certificates')
+                cursor.execute('''
+                    CREATE TABLE certificates (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        order_id INTEGER,
+                        cert_pem TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (order_id) REFERENCES orders (id)
+                    )
+                ''')
+                logger.info("Certificates table migrated successfully")
         except Exception as e:
             logger.warning(f"Schema migration check failed: {e}")
         
