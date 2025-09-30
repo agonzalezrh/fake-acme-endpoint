@@ -659,23 +659,17 @@ def respond_to_challenge(challenge_id: int):
         challenge_url = f"{base_url}/acme/challenge/{challenge_id}"
         authz_url = f"{base_url}/acme/authz/{authz_id}"
         
-        # If this is a POST with empty payload, client is ready for validation
-        # Start async validation (in a real implementation)
-        # For fake endpoint, we mark as processing then valid
+        # For POST requests, trigger async validation but return current state
+        # The status shouldn't change in the response - validation happens in background
         if request.method == 'POST':
             payload = parse_jws_payload()
-            if payload is not None and current_status == 'pending':
-                # Mark as processing, then immediately valid (fake endpoint behavior)
-                cursor.execute(
-                    'UPDATE challenges SET status = ? WHERE id = ?',
-                    ('processing', challenge_id)
-                )
-                conn.commit()
-                current_status = 'processing'
+            # In a real ACME server, this would trigger async validation
+            # For our fake endpoint, validation happens when .well-known is accessed
+            # Don't change status here - just acknowledge the request
         
         conn.close()
         
-        # Build response
+        # Build response - return challenge in its current state
         response_data = {
             'type': chal_type,
             'status': current_status,
@@ -683,7 +677,7 @@ def respond_to_challenge(challenge_id: int):
             'token': token
         }
         
-        # Add validated timestamp if challenge is valid
+        # Add validated timestamp if challenge is already valid
         if current_status in ['valid', 'invalid']:
             response_data['validated'] = datetime.now().isoformat() + 'Z'
         
