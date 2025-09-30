@@ -577,28 +577,32 @@ def respond_to_challenge(challenge_id: int):
         # If POST, tell upstream we're ready for validation
         if request.method == 'POST':
             payload = parse_jws_payload()
-            if payload is not None and status == 'pending':
+            if payload is not None:
                 logger.info(f"Client ready for validation of {chal_type} challenge for {domain}")
                 
                 # Get upstream client
                 upstream_client, provider = get_upstream_acme_client()
                 
-                # Tell upstream to validate (answer the challenge)
+                # Tell upstream to validate by POSTing to the challenge URL
                 try:
-                    # Post empty body to upstream challenge URL to trigger validation
-                    upstream_client._post_as_get(upstream_url)
-                    logger.info(f"Notified {provider} to validate challenge")
+                    logger.info(f"Notifying {provider} to validate challenge at {upstream_url}")
                     
-                    # Update status to processing
+                    # Post empty payload to trigger validation on upstream
+                    challenge_response = upstream_client._post(upstream_url, obj={})
+                    challenge_status = challenge_response.json().get('status', 'pending')
+                    
+                    logger.info(f"Upstream challenge status: {challenge_status}")
+                    
+                    # Update our status
                     cursor.execute(
                         'UPDATE challenges SET status = ? WHERE id = ?',
-                        ('processing', challenge_id)
+                        (challenge_status, challenge_id)
                     )
                     conn.commit()
-                    status = 'processing'
+                    status = challenge_status
                     
                 except Exception as e:
-                    logger.error(f"Failed to notify upstream: {e}")
+                    logger.error(f"Failed to notify upstream: {e}", exc_info=True)
         
         conn.close()
         
