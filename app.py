@@ -168,11 +168,45 @@ def user_detail(username):
 
 @app.route('/health', methods=['GET'])
 def health():
-    return health_check()
+    """Health check endpoint"""
+    upstream_status = {}
+    
+    # Check ZeroSSL
+    if ZEROSSL_EAB_KID and ZEROSSL_EAB_HMAC_KEY:
+        try:
+            resp = requests.get(ZEROSSL_BASE, timeout=5)
+            upstream_status['zerossl'] = resp.status_code == 200
+        except:
+            upstream_status['zerossl'] = False
+    
+    # Check Let's Encrypt
+    if LETSENCRYPT_FALLBACK:
+        try:
+            resp = requests.get(LETSENCRYPT_BASE, timeout=5)
+            upstream_status['letsencrypt'] = resp.status_code == 200
+        except:
+            upstream_status['letsencrypt'] = False
+    
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'database': os.path.exists(DATABASE_PATH),
+        'upstream': upstream_status
+    })
 
 @app.route('/terms', methods=['GET'])
 def terms():
-    return terms_of_service()
+    """Terms of Service"""
+    return """
+    <html>
+    <head><title>Terms of Service</title></head>
+    <body>
+    <h1>ACME Proxy - Terms of Service</h1>
+    <p>This is an ACME proxy that forwards requests to upstream certificate authorities.</p>
+    <p>By using this service, you agree to the terms of the upstream providers.</p>
+    </body>
+    </html>
+    """
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)
