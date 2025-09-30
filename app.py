@@ -46,37 +46,48 @@ def parse_jws_payload():
     """Parse JWS-signed ACME request payload"""
     try:
         data = request.get_data(as_text=True)
+        logger.debug(f"Received request data: {data[:200]}...")
+        
         if not data:
+            logger.warning("No request data")
             return None
         
-        # Try to parse as JSON first (for non-JWS requests)
+        # Parse JWS envelope
         try:
-            return json.loads(data)
-        except json.JSONDecodeError:
-            pass
-        
-        # Parse JWS
-        jws_data = json.loads(data)
-        if 'payload' not in jws_data:
+            jws_data = json.loads(data)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON: {e}")
             return None
+        
+        # Check if this is a JWS request
+        if 'payload' not in jws_data:
+            logger.debug("Not a JWS request, returning raw data")
+            return jws_data
         
         # Decode payload (base64url encoded)
         payload_b64 = jws_data['payload']
         if not payload_b64:  # Empty payload for POST-as-GET
+            logger.debug("Empty JWS payload (POST-as-GET)")
             return {}
         
-        # Add padding if needed
-        padding = 4 - (len(payload_b64) % 4)
-        if padding != 4:
-            payload_b64 += '=' * padding
-        
-        payload_bytes = base64.urlsafe_b64decode(payload_b64)
-        payload = json.loads(payload_bytes.decode('utf-8'))
-        
-        return payload
+        # Base64url decode (no padding needed for urlsafe_b64decode)
+        try:
+            # Add padding if needed
+            padding = 4 - (len(payload_b64) % 4)
+            if padding != 4:
+                payload_b64 += '=' * padding
+            
+            payload_bytes = base64.urlsafe_b64decode(payload_b64)
+            payload = json.loads(payload_bytes.decode('utf-8'))
+            
+            logger.debug(f"Decoded JWS payload: {payload}")
+            return payload
+        except Exception as e:
+            logger.error(f"Failed to decode JWS payload: {e}")
+            return None
         
     except Exception as e:
-        logger.error(f"Error parsing JWS payload: {e}")
+        logger.error(f"Error parsing JWS payload: {e}", exc_info=True)
         return None
 
 class FakeACMEProvider:
