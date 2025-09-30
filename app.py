@@ -142,7 +142,7 @@ def get_upstream_acme_client():
             )
             
             regr = messages.NewRegistration.from_data(
-                email='gateway@fake-acme.local',
+                email='admin@acme-gateway.net',
                 external_account_binding=eab
             )
             
@@ -170,7 +170,7 @@ def get_upstream_acme_client():
             
             # Register without EAB
             regr = messages.NewRegistration.from_data(
-                email='gateway@fake-acme.local',
+                email='admin@acme-gateway.net',
                 terms_of_service_agreed=True
             )
             
