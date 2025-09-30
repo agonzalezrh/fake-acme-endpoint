@@ -19,6 +19,7 @@ from flask import Flask, request, jsonify, Response
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
+import jose.jws
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,43 @@ def add_nonce_header(response):
     response.headers['Replay-Nonce'] = nonce
     response.headers['Cache-Control'] = 'no-store'
     return response
+
+def parse_jws_payload():
+    """Parse JWS-signed ACME request payload"""
+    try:
+        data = request.get_data(as_text=True)
+        if not data:
+            return None
+        
+        # Try to parse as JSON first (for non-JWS requests)
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError:
+            pass
+        
+        # Parse JWS
+        jws_data = json.loads(data)
+        if 'payload' not in jws_data:
+            return None
+        
+        # Decode payload (base64url encoded)
+        payload_b64 = jws_data['payload']
+        if not payload_b64:  # Empty payload for POST-as-GET
+            return {}
+        
+        # Add padding if needed
+        padding = 4 - (len(payload_b64) % 4)
+        if padding != 4:
+            payload_b64 += '=' * padding
+        
+        payload_bytes = base64.urlsafe_b64decode(payload_b64)
+        payload = json.loads(payload_bytes.decode('utf-8'))
+        
+        return payload
+        
+    except Exception as e:
+        logger.error(f"Error parsing JWS payload: {e}")
+        return None
 
 class FakeACMEProvider:
     """Fake ACME provider that manages users and certificates"""
@@ -291,9 +329,9 @@ def new_account():
             response = jsonify({'error': 'method not allowed', 'detail': 'Use POST to create or lookup account'})
             return add_nonce_header(response), 405
             
-        payload = request.get_json()
-        if not payload:
-            raise BadRequest('Invalid JSON payload')
+        payload = parse_jws_payload()
+        if payload is None:
+            raise BadRequest('Invalid JWS payload')
         
         # Handle onlyReturnExisting for account lookup
         only_return_existing = payload.get('onlyReturnExisting', False)
@@ -395,9 +433,9 @@ def new_order():
             response = jsonify({'error': 'method not allowed', 'detail': 'Use POST to create a new order'})
             return add_nonce_header(response), 405
             
-        payload = request.get_json()
-        if not payload:
-            raise BadRequest('Invalid JSON payload')
+        payload = parse_jws_payload()
+        if payload is None:
+            raise BadRequest('Invalid JWS payload')
         
         identifiers = payload.get('identifiers', [])
         if not identifiers:
