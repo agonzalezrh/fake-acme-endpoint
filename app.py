@@ -427,7 +427,7 @@ def new_account():
         logger.error(f"Error in new_account: {e}")
         raise InternalServerError(f"Account operation failed: {str(e)}")
 
-@app.route('/acme/account/<int:account_id>', methods=['POST'])
+@app.route('/acme/account/<int:account_id>', methods=['GET', 'POST', 'HEAD'])
 def account_details(account_id: int):
     """Get account details (RFC 8555 Section 7.3.2)"""
     try:
@@ -539,7 +539,7 @@ def new_order():
         logger.error(f"Error creating order: {e}")
         raise InternalServerError(f"Order creation failed: {str(e)}")
 
-@app.route('/acme/order/<int:order_id>', methods=['POST'])
+@app.route('/acme/order/<int:order_id>', methods=['GET', 'POST', 'HEAD'])
 def get_order(order_id: int):
     """Get order status (RFC 8555 Section 7.4)"""
     try:
@@ -582,7 +582,7 @@ def get_order(order_id: int):
         logger.error(f"Error getting order: {e}")
         raise InternalServerError(f"Order retrieval failed: {str(e)}")
 
-@app.route('/acme/authz/<int:authz_id>', methods=['POST'])
+@app.route('/acme/authz/<int:authz_id>', methods=['GET', 'POST', 'HEAD'])
 def get_authorization(authz_id: int):
     """Get authorization (RFC 8555 Section 7.5)"""
     try:
@@ -633,7 +633,7 @@ def get_authorization(authz_id: int):
         logger.error(f"Error getting authorization: {e}")
         raise InternalServerError(f"Authorization retrieval failed: {str(e)}")
 
-@app.route('/acme/challenge/<int:challenge_id>', methods=['POST'])
+@app.route('/acme/challenge/<int:challenge_id>', methods=['GET', 'POST', 'HEAD'])
 def respond_to_challenge(challenge_id: int):
     """Respond to ACME challenge (RFC 8555 Section 7.5.1)"""
     try:
@@ -679,7 +679,7 @@ def respond_to_challenge(challenge_id: int):
         logger.error(f"Error responding to challenge: {e}")
         raise InternalServerError(f"Challenge response failed: {str(e)}")
 
-@app.route('/acme/order/<int:order_id>/finalize', methods=['POST'])
+@app.route('/acme/order/<int:order_id>/finalize', methods=['GET', 'POST', 'HEAD'])
 def finalize_order(order_id: int):
     """Finalize order and issue certificate (RFC 8555 Section 7.4)"""
     try:
@@ -746,7 +746,7 @@ CgKCAQEAw8VK9qHN0I7RqZvsm4FqJ9EqNqVGLmKNMxDzELJPXqKqKqKqKqKqKqKq
         logger.error(f"Error finalizing order: {e}")
         raise InternalServerError(f"Order finalization failed: {str(e)}")
 
-@app.route('/acme/order/<int:order_id>/certificate', methods=['POST'])
+@app.route('/acme/order/<int:order_id>/certificate', methods=['GET', 'POST', 'HEAD'])
 def download_certificate(order_id: int):
     """Download certificate (RFC 8555 Section 7.4.2)"""
     try:
@@ -798,7 +798,7 @@ def http_challenge(token: str):
         logger.error(f"Error in HTTP challenge: {e}")
         raise InternalServerError(f"HTTP challenge failed: {str(e)}")
 
-@app.route('/acme/revoke-cert', methods=['POST'])
+@app.route('/acme/revoke-cert', methods=['GET', 'POST', 'HEAD'])
 def revoke_cert():
     """Revoke certificate (RFC 8555 Section 7.6)"""
     try:
@@ -814,7 +814,7 @@ def revoke_cert():
         logger.error(f"Error revoking certificate: {e}")
         raise InternalServerError(f"Certificate revocation failed: {str(e)}")
 
-@app.route('/acme/key-change', methods=['POST'])
+@app.route('/acme/key-change', methods=['GET', 'POST', 'HEAD'])
 def key_change():
     """Change account key (RFC 8555 Section 7.3.5)"""
     try:
