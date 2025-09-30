@@ -167,6 +167,32 @@ class FakeACMEProvider:
             )
         ''')
         
+        # Migrate old database schema if needed
+        try:
+            # Check if old challenges table exists with wrong schema
+            cursor.execute("PRAGMA table_info(challenges)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'authz_id' not in columns and 'cert_id' in columns:
+                # Drop old table and recreate
+                logger.info("Migrating old database schema...")
+                cursor.execute('DROP TABLE IF EXISTS challenges')
+                cursor.execute('''
+                    CREATE TABLE challenges (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        authz_id INTEGER,
+                        type TEXT NOT NULL,
+                        token TEXT NOT NULL,
+                        status TEXT DEFAULT 'pending',
+                        validated TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (authz_id) REFERENCES authorizations (id)
+                    )
+                ''')
+                logger.info("Database schema migrated successfully")
+        except Exception as e:
+            logger.warning(f"Schema migration check failed: {e}")
+        
         conn.commit()
         conn.close()
     
