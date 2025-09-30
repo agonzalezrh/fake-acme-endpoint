@@ -673,17 +673,32 @@ def respond_to_challenge(challenge_id: int):
         challenge_url = f"{base_url}/acme/challenge/{challenge_id}"
         authz_url = f"{base_url}/acme/authz/{authz_id}"
         
-        # For POST requests, trigger async validation but return current state
-        # The status shouldn't change in the response - validation happens in background
+        # For POST requests with empty payload, client is ready - start validation
         if request.method == 'POST':
             payload = parse_jws_payload()
-            # In a real ACME server, this would trigger async validation
-            # For our fake endpoint, validation happens when .well-known is accessed
-            # Don't change status here - just acknowledge the request
+            if payload is not None and current_status == 'pending':
+                # For fake endpoint: auto-validate immediately
+                # In production, this would trigger async validation
+                conn = sqlite3.connect(DATABASE_PATH)
+                cursor = conn.cursor()
+                cursor.execute(
+                    'UPDATE challenges SET status = ?, validated = ? WHERE id = ?',
+                    ('valid', datetime.now().isoformat(), challenge_id)
+                )
+                cursor.execute(
+                    'UPDATE authorizations SET status = ? WHERE id = ?',
+                    ('valid', authz_id)
+                )
+                # Also update order status to ready
+                cursor.execute(
+                    'UPDATE orders SET status = ? WHERE id IN (SELECT order_id FROM authorizations WHERE id = ?)',
+                    ('ready', authz_id)
+                )
+                conn.commit()
+                conn.close()
+                current_status = 'valid'
         
-        conn.close()
-        
-        # Build response - return challenge in its current state
+        # Build response
         response_data = {
             'type': chal_type,
             'status': current_status,
@@ -691,7 +706,7 @@ def respond_to_challenge(challenge_id: int):
             'token': token
         }
         
-        # Add validated timestamp if challenge is already valid
+        # Add validated timestamp if challenge is valid
         if current_status in ['valid', 'invalid']:
             response_data['validated'] = datetime.now().isoformat() + 'Z'
         
