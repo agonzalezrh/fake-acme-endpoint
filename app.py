@@ -135,7 +135,7 @@ def get_upstream_acme_client():
             
             # Register with EAB
             eab = messages.ExternalAccountBinding.from_data(
-                account_public_key=account_key.public_key(),
+                account_key=account_key,
                 kid=ZEROSSL_EAB_KID,
                 hmac_key=ZEROSSL_EAB_HMAC_KEY,
                 directory=directory
