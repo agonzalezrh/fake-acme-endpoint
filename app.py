@@ -514,13 +514,22 @@ def new_order():
                     (authz_id, challenge_type, token, 'pending')
                 )
             
-            authz_urls.append(f"{request.url_root}acme/authz/{authz_id}")
+            # Use HTTPS for authz URLs
+            base_url_temp = request.url_root.rstrip('/')
+            if base_url_temp.startswith('http://'):
+                base_url_temp = base_url_temp.replace('http://', 'https://')
+            authz_urls.append(f"{base_url_temp}/acme/authz/{authz_id}")
         
         conn.commit()
         conn.close()
         
+        # Build base URL with HTTPS
+        base_url = request.url_root.rstrip('/')
+        if base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+        
         # Generate order URL
-        order_url = f"{request.url_root}acme/order/{order_id}"
+        order_url = f"{base_url}/acme/order/{order_id}"
         
         response = jsonify({
             'status': 'pending',
@@ -605,9 +614,14 @@ def get_authorization(authz_id: int):
         
         conn.close()
         
+        # Build base URL with HTTPS
+        base_url = request.url_root.rstrip('/')
+        if base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+        
         challenges_list = []
         for chal_id, chal_type, token, chal_status in challenges_data:
-            challenge_url = f"{request.url_root}acme/challenge/{chal_id}"
+            challenge_url = f"{base_url}/acme/challenge/{chal_id}"
             challenges_list.append({
                 'type': chal_type,
                 'url': challenge_url,
