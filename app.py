@@ -646,6 +646,8 @@ def respond_to_challenge(challenge_id: int):
             conn.close()
             raise NotFound('Challenge not found')
         
+        authz_id = challenge[1]  # authz_id
+        
         # Auto-validate the challenge (this is a fake endpoint)
         cursor.execute(
             'UPDATE challenges SET status = ?, validated = ? WHERE id = ?',
@@ -655,13 +657,19 @@ def respond_to_challenge(challenge_id: int):
         # Update authorization status
         cursor.execute(
             'UPDATE authorizations SET status = ? WHERE id = ?',
-            ('valid', challenge[1])  # authz_id
+            ('valid', authz_id)
         )
         
         conn.commit()
         conn.close()
         
-        challenge_url = f"{request.url_root}acme/challenge/{challenge_id}"
+        # Build URLs
+        base_url = request.url_root.rstrip('/')
+        if base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+        
+        challenge_url = f"{base_url}/acme/challenge/{challenge_id}"
+        authz_url = f"{base_url}/acme/authz/{authz_id}"
         
         response = jsonify({
             'type': challenge[2],  # type
@@ -670,6 +678,9 @@ def respond_to_challenge(challenge_id: int):
             'token': challenge[3],  # token
             'validated': datetime.now().isoformat() + 'Z'
         })
+        
+        # Add Link header pointing to authorization
+        response.headers['Link'] = f'<{authz_url}>;rel="up"'
         
         return add_nonce_header(response)
         
