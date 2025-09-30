@@ -398,10 +398,27 @@ def new_order():
         
         csr_pem = csr.public_bytes(serialization.Encoding.PEM)
         
-        # Create order with upstream
-        upstream_order = upstream_client.new_order(csr_pem)
+        # Create order with upstream using low-level API
+        from acme import messages as acme_messages
         
-        logger.info(f"Created upstream order with {len(upstream_order.authorizations)} authorizations")
+        # Build order request
+        order_identifiers = [
+            acme_messages.Identifier(typ=acme_messages.IDENTIFIER_FQDN, value=domain)
+            for domain in domains
+        ]
+        new_order_request = acme_messages.NewOrder(identifiers=order_identifiers)
+        
+        # Post to upstream
+        order_response = upstream_client._post(
+            upstream_client.directory['newOrder'],
+            new_order_request
+        )
+        
+        upstream_order_url = order_response.headers['Location']
+        upstream_authz_urls = order_response.json()['authorizations']
+        
+        logger.info(f"Created upstream order at {upstream_order_url}")
+        logger.info(f"Got {len(upstream_authz_urls)} authorization URLs")
         
         # Save order to database
         conn = sqlite3.connect(DATABASE_PATH)
@@ -409,37 +426,41 @@ def new_order():
         
         cursor.execute(
             'INSERT INTO orders (upstream_order_url, domains, status) VALUES (?, ?, ?)',
-            (upstream_order.uri, json.dumps(domains), 'pending')
+            (upstream_order_url, json.dumps(domains), 'pending')
         )
         order_id = cursor.lastrowid
         
-        # Get challenges from upstream authorizations
+        # Get challenges from each authorization
         authz_urls = []
         challenge_list = []
         
-        for authz_url in upstream_order.authorizations:
-            # Fetch authorization from upstream
-            authz = upstream_client._authzr_from_response(
-                upstream_client._post_as_get(authz_url),
-                uri=authz_url
-            )
+        for i, authz_url in enumerate(upstream_authz_urls):
+            domain = domains[i] if i < len(domains) else domains[0]
+            logger.info(f"Processing authorization for domain: {domain}")
             
-            domain = authz.body.identifier.value
-            logger.info(f"Got authorization for domain: {domain}")
-            
-            # Save challenges
-            for challenge in authz.body.challenges:
-                cursor.execute(
-                    'INSERT INTO challenges (order_id, domain, challenge_type, token, upstream_challenge_url, status) VALUES (?, ?, ?, ?, ?, ?)',
-                    (order_id, domain, challenge.typ, challenge.token, challenge.uri, 'pending')
-                )
-                challenge_id = cursor.lastrowid
-                challenge_list.append({
-                    'id': challenge_id,
-                    'type': challenge.typ,
-                    'token': challenge.token,
-                    'domain': domain
-                })
+            # Fetch this authorization
+            try:
+                authz_response = upstream_client._post_as_get(authz_url)
+                authz_data = authz_response.json()
+                
+                # Get challenges from authorization
+                for challenge_data in authz_data.get('challenges', []):
+                    cursor.execute(
+                        'INSERT INTO challenges (order_id, domain, challenge_type, token, upstream_challenge_url, status) VALUES (?, ?, ?, ?, ?, ?)',
+                        (order_id, domain, challenge_data['type'], challenge_data['token'], challenge_data['url'], 'pending')
+                    )
+                    challenge_id = cursor.lastrowid
+                    challenge_list.append({
+                        'id': challenge_id,
+                        'type': challenge_data['type'],
+                        'token': challenge_data['token'],
+                        'domain': domain
+                    })
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch authorization from {authz_url}: {e}")
+                conn.close()
+                raise
             
             base_url = request.url_root.rstrip('/')
             if base_url.startswith('http://'):
