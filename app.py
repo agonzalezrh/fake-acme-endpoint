@@ -77,6 +77,17 @@ def init_database():
         )
     ''')
     
+    # Upstream account key storage
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS upstream_account (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            provider TEXT,
+            account_key_pem TEXT,
+            account_url TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # Orders - maps client orders to upstream orders
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS orders (
@@ -158,14 +169,35 @@ def get_upstream_acme_client():
     if upstream_acme_client is not None:
         return upstream_acme_client, upstream_provider_name
     
-    # Generate account key for upstream
-    account_key = jose.JWKRSA(
-        key=rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
+    # Check if we have a stored account key
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('SELECT provider, account_key_pem, account_url FROM upstream_account WHERE id = 1')
+    stored = cursor.fetchone()
+    conn.close()
+    
+    if stored:
+        # Load existing account key
+        provider, key_pem, account_url = stored
+        logger.info(f"Loading stored {provider} account key")
+        
+        from cryptography.hazmat.primitives import serialization
+        private_key = serialization.load_pem_private_key(
+            key_pem.encode(),
+            password=None,
             backend=default_backend()
         )
-    )
+        account_key = jose.JWKRSA(key=private_key)
+    else:
+        # Generate new account key
+        logger.info("Generating new account key for upstream")
+        account_key = jose.JWKRSA(
+            key=rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+                backend=default_backend()
+            )
+        )
     
     # Try ZeroSSL first
     if ZEROSSL_EAB_KID and ZEROSSL_EAB_HMAC_KEY:
@@ -191,8 +223,27 @@ def get_upstream_acme_client():
             try:
                 account = acme_cl.new_account(regr)
                 logger.info("✓ Registered with ZeroSSL")
+                account_url = account.uri
             except Exception as e:
                 logger.info(f"ZeroSSL account exists or registration failed: {e}")
+                account_url = None
+            
+            # Save account key if not already stored
+            if not stored:
+                conn = sqlite3.connect(DATABASE_PATH)
+                cursor = conn.cursor()
+                key_pem = account_key.key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption()
+                ).decode()
+                cursor.execute(
+                    'INSERT OR REPLACE INTO upstream_account (id, provider, account_key_pem, account_url) VALUES (1, ?, ?, ?)',
+                    ('ZeroSSL', key_pem, account_url)
+                )
+                conn.commit()
+                conn.close()
+                logger.info("✓ Saved ZeroSSL account key to database")
             
             upstream_acme_client = acme_cl
             upstream_provider_name = 'ZeroSSL'
@@ -219,8 +270,27 @@ def get_upstream_acme_client():
             try:
                 account = acme_cl.new_account(regr)
                 logger.info("✓ Registered with Let's Encrypt")
+                account_url = account.uri
             except Exception as e:
                 logger.info(f"Let's Encrypt account exists: {e}")
+                account_url = None
+            
+            # Save account key if not already stored
+            if not stored:
+                conn = sqlite3.connect(DATABASE_PATH)
+                cursor = conn.cursor()
+                key_pem = account_key.key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption()
+                ).decode()
+                cursor.execute(
+                    'INSERT OR REPLACE INTO upstream_account (id, provider, account_key_pem, account_url) VALUES (1, ?, ?, ?)',
+                    ("Let's Encrypt", key_pem, account_url)
+                )
+                conn.commit()
+                conn.close()
+                logger.info("✓ Saved Let's Encrypt account key to database")
             
             upstream_acme_client = acme_cl
             upstream_provider_name = "Let's Encrypt"
