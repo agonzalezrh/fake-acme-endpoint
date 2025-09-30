@@ -181,7 +181,6 @@ def get_upstream_acme_client():
         provider, key_pem, account_url = stored
         logger.info(f"Loading stored {provider} account key")
         
-        from cryptography.hazmat.primitives import serialization
         private_key = serialization.load_pem_private_key(
             key_pem.encode(),
             password=None,
