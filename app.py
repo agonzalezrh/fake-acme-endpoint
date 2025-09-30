@@ -117,7 +117,23 @@ def proxy_request(upstream_path):
 # ACME endpoints
 @app.route('/acme/directory', methods=['GET'])
 def directory():
-    return acme_directory()
+    """ACME directory endpoint"""
+    base_url = request.url_root.rstrip('/')
+    if base_url.startswith('http://'):
+        base_url = base_url.replace('http://', 'https://')
+    
+    return jsonify({
+        'newNonce': f'{base_url}/acme/new-nonce',
+        'newAccount': f'{base_url}/acme/new-account',
+        'newOrder': f'{base_url}/acme/new-order',
+        'revokeCert': f'{base_url}/acme/revoke-cert',
+        'keyChange': f'{base_url}/acme/key-change',
+        'meta': {
+            'termsOfService': f'{base_url}/terms',
+            'website': f'{base_url}',
+            'caaIdentities': ['fake-acme-proxy.example.com']
+        }
+    })
 
 @app.route('/acme/<path:path>', methods=['GET', 'POST', 'HEAD'])  
 def acme_catchall(path):
