@@ -19,7 +19,6 @@ from flask import Flask, request, jsonify, Response
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-import jose.jws
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
