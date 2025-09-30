@@ -104,6 +104,48 @@ def init_database():
         )
     ''')
     
+    # Migrate old schema if needed
+    try:
+        cursor.execute("PRAGMA table_info(orders)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'upstream_order_url' not in columns:
+            logger.info("Migrating orders table...")
+            cursor.execute('DROP TABLE IF EXISTS challenges')
+            cursor.execute('DROP TABLE IF EXISTS orders')
+            cursor.execute('DROP TABLE IF EXISTS certificates')
+            cursor.execute('DROP TABLE IF EXISTS authorizations')
+            
+            # Recreate with correct schema
+            cursor.execute('''
+                CREATE TABLE orders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_order_id INTEGER,
+                    upstream_order_url TEXT,
+                    domains TEXT,
+                    status TEXT DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE challenges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    order_id INTEGER,
+                    domain TEXT,
+                    challenge_type TEXT,
+                    token TEXT,
+                    upstream_challenge_url TEXT,
+                    status TEXT DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (order_id) REFERENCES orders (id)
+                )
+            ''')
+            
+            logger.info("✓ Database schema migrated")
+    except Exception as e:
+        logger.warning(f"Migration check failed: {e}")
+    
     conn.commit()
     conn.close()
 
